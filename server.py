@@ -28,19 +28,24 @@ def sets():
 
     start_time = perf_counter()
     conn = psycopg.connect(**DB_CONFIG)
+
+    #Create a list
+    rows = []
     try:
         with conn.cursor() as cur:
             cur.execute("select id, name from lego_set order by id")
             for row in cur.fetchall():
                 html_safe_id = html.escape(row[0])
                 html_safe_name = html.escape(row[1])
-                existing_rows = rows
-                rows = existing_rows + f'<tr><td><a href="/set?id={html_safe_id}">{html_safe_id}</a></td><td>{html_safe_name}</td></tr>\n'
+                #Append to list instead of string concatination
+                rows.append(f'<tr><td><a href="/set?id={html_safe_id}">{html_safe_id}</a></td><td>{html_safe_name}</td></tr>\n')
         print(f"Time to render all sets: {perf_counter() - start_time}")
     finally:
         conn.close()
-
-    page_html = template.replace("{ROWS}", rows)
+    #Make list into a string
+    row_result = "".join(rows)
+    #Return the string instead of row
+    page_html = template.replace("{ROWS}", row_result)
     return Response(page_html, content_type="text/html")
 
 
