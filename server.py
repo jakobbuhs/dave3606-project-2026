@@ -3,6 +3,7 @@ import html
 import psycopg
 from flask import Flask, Response, request
 from time import perf_counter
+import gzip
 
 app = Flask(__name__)
 
@@ -17,14 +18,34 @@ DB_CONFIG = {
 
 @app.route("/")
 def index():
-    template = open("templates/index.html").read()
+    #Automatically close the file when done
+    with open("templates/index.html") as f:
+        template = f.read()
+
     return Response(template)
+
+#Helper method for checking if the given encoding is legal
+def is_valid_encoding(encoding):
+    #List of allowed encodings. This program will only support UTF-16 and UTF-8. The default encoding is UTF-8
+    legal_encoding_types = ["utf-8", "utf-16"]
+    return encoding in legal_encoding_types
+
+#Helper metthod for encoding content with correct utf
+def encode_to_utf(content, utfType):
+    match utfType:
+        case "utf-8":
+            return content.encode("utf-8")
+        case "utf-16":
+            return content.encode("utf-16")
+        case _:
+            return content.encode("utf-8")
 
 
 @app.route("/sets")
 def sets():
-    template = open("templates/sets.html").read()
-    rows = ""
+    #Automatically close the file when done
+    with open("templates/sets.html") as f:
+        template = f.read()
 
     start_time = perf_counter()
     conn = psycopg.connect(**DB_CONFIG)
@@ -42,16 +63,49 @@ def sets():
         print(f"Time to render all sets: {perf_counter() - start_time}")
     finally:
         conn.close()
+
+    
     #Make list into a string
     row_result = "".join(rows)
     #Return the string instead of row
     page_html = template.replace("{ROWS}", row_result)
-    return Response(page_html, content_type="text/html")
+
+    #Retrieve encoding type from request
+    encoding_type = request.args.get("encoding")
+
+    #Validate encoding type
+    utf_validation = is_valid_encoding(encoding_type)
+
+    #Check if encoding type is legal. If not use default
+    if not utf_validation:
+        encoding_type = "utf-8"
+
+    #Create placeholder for charset, alike rows. 
+    if encoding_type == "utf-8":
+        charset = '<meta charset="UTF-8">'
+    else:
+        charset = ""  # Fjern taggen
+
+    page_html = page_html.replace("{CHARSET}", charset)
+
+    #Print statement for debugging
+    print(encoding_type)
+    
+
+    #Encode page with given UTF
+    encoded_page = encode_to_utf(page_html, encoding_type)
+
+    #Compress page with GZIP
+    compressed_page = gzip.compress(encoded_page)
+    return Response(compressed_page, content_type="text/html; charset=" + encoding_type, headers={"Content-Encoding": "gzip"})
 
 
 @app.route("/set")
 def legoSet():  # We don't want to call the function `set`, since that would hide the `set` data type.
-    template = open("templates/set.html").read()
+    #Automatically close the file when done
+    with open("templates/set.html") as f:
+        template = f.read()
+
     return Response(template)
 
 
