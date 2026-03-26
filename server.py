@@ -1,19 +1,14 @@
 import json
 import html
-import psycopg
 from flask import Flask, Response, request
 from time import perf_counter
 import gzip
 
+from database import Database
+
 app = Flask(__name__)
 
-DB_CONFIG = {
-    "host": "localhost",
-    "port": 9876,
-    "dbname": "lego-db",
-    "user": "lego",
-    "password": "bricks",
-}
+
 
 
 @app.route("/")
@@ -40,36 +35,54 @@ def encode_to_utf(content, utfType):
         case _:
             return content.encode("utf-8")
 
-
-@app.route("/sets")
-def sets():
+def get_sets(db, encoding):
     #Automatically close the file when done
     with open("templates/sets.html") as f:
         template = f.read()
-
     start_time = perf_counter()
-    conn = psycopg.connect(**DB_CONFIG)
 
-    #Create a list
-    rows = []
     try:
-        with conn.cursor() as cur:
-            cur.execute("select id, name from lego_set order by id")
-            for row in cur.fetchall():
-                html_safe_id = html.escape(row[0])
-                html_safe_name = html.escape(row[1])
-                #Append to list instead of string concatination
-                rows.append(f'<tr><td><a href="/set?id={html_safe_id}">{html_safe_id}</a></td><td>{html_safe_name}</td></tr>\n')
+        #Perform query and save to local variable
+        query_result = db.execute_and_fetch_all("select id, name from lego_set order by id")
+        #Create a list
+        rows = []
+
+        #Append results in list
+        for row in  query_result:
+            html_safe_id = html.escape(row[0])
+            html_safe_name = html.escape(row[1])
+            #Append to list instead of string concatination
+        
+            rows.append(f'<tr><td><a href="/set?id={html_safe_id}">{html_safe_id}</a></td><td>{html_safe_name}</td></tr>\n')
         print(f"Time to render all sets: {perf_counter() - start_time}")
+        
+        #Make list into a string
+        row_result = "".join(rows)
+        #Return the string instead of row
+        page_html = template.replace("{ROWS}", row_result)
+
+
+        #Create placeholder for charset, alike rows. 
+        if encoding == "utf-8":
+            charset = '<meta charset="UTF-8">'
+        else:
+            charset = ""  # Fjern taggen
+
+        page_html = page_html.replace("{CHARSET}", charset)
+
+        #Print statement for debugging
+        print(encoding)
+        
+        return page_html
+
     finally:
-        conn.close()
+        #Close the db to prevent resource waste
+        db.close()
 
-    
-    #Make list into a string
-    row_result = "".join(rows)
-    #Return the string instead of row
-    page_html = template.replace("{ROWS}", row_result)
+   
 
+@app.route("/sets")
+def sets():
     #Retrieve encoding type from request
     encoding_type = request.args.get("encoding")
 
@@ -80,23 +93,19 @@ def sets():
     if not utf_validation:
         encoding_type = "utf-8"
 
-    #Create placeholder for charset, alike rows. 
-    if encoding_type == "utf-8":
-        charset = '<meta charset="UTF-8">'
-    else:
-        charset = ""  # Fjern taggen
 
-    page_html = page_html.replace("{CHARSET}", charset)
-
-    #Print statement for debugging
-    print(encoding_type)
+    #Create database object
+    db = Database()
     
+    page_html = get_sets(db, encoding_type)
 
     #Encode page with given UTF
     encoded_page = encode_to_utf(page_html, encoding_type)
 
     #Compress page with GZIP
     compressed_page = gzip.compress(encoded_page)
+    
+    
     return Response(compressed_page, content_type="text/html; charset=" + encoding_type, headers={"Content-Encoding": "gzip"})
 
 
