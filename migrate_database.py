@@ -66,6 +66,16 @@ cur.execute(
         REFERENCES lego_brick(brick_type_id, color_id);
     """
 )
+cur.execute(
+    """
+    CREATE INDEX idx_inventory_brick_type ON lego_inventory (brick_type_id);
+    """
+)
+cur.execute(
+    """
+    CREATE INDEX idx_inventory_color ON lego_inventory (color_id);
+    """
+)
 cur.close()
 conn.commit()
 conn.close()
