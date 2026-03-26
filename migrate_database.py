@@ -40,6 +40,32 @@ cur.execute(
     );
     """
 )
+cur.execute(
+    """
+    ALTER TABLE lego_set ADD PRIMARY KEY (id);
+    """
+)
+cur.execute(
+    """
+    ALTER TABLE lego_brick ADD PRIMARY KEY (brick_type_id, color_id);
+    """
+)
+cur.execute(
+    """
+    ALTER TABLE lego_inventory ADD PRIMARY KEY (set_id, brick_type_id, color_id);
+    """
+)
+cur.execute(
+    """
+    ALTER TABLE lego_inventory ADD FOREIGN KEY (set_id) REFERENCES lego_set(id);
+    """
+)
+cur.execute(
+    """
+    ALTER TABLE lego_inventory ADD FOREIGN KEY (brick_type_id, color_id)
+        REFERENCES lego_brick(brick_type_id, color_id);
+    """
+)
 cur.close()
 conn.commit()
 conn.close()
