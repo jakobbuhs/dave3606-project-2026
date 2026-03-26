@@ -1,5 +1,6 @@
 import json
 import html
+import struct
 from flask import Flask, Response, request
 from time import perf_counter
 import gzip
@@ -131,11 +132,50 @@ def get_set(db, set_id):
     data["bricks"] = []
     for brick in bricks_result:
         data["bricks"].append({"name": brick[0], "color_id": brick[1], "count": brick[2]})
-    
-    return json.dumps(data)
 
-    
+    return data
 
+
+def get_set_binary(db, set_id):
+    data = get_set(db, set_id)
+    buf = bytearray()
+
+    # Magic bytes to identify the file format
+    buf.extend(b"LEGO")
+
+    # Encode set id as: length (2 bytes) + utf-8 bytes
+    id_bytes = data["id"].encode("utf-8")
+    buf.extend(struct.pack(">H", len(id_bytes)))
+    buf.extend(id_bytes)
+
+    # Encode set name as: length (2 bytes) + utf-8 bytes
+    name_bytes = data["name"].encode("utf-8")
+    buf.extend(struct.pack(">H", len(name_bytes)))
+    buf.extend(name_bytes)
+
+    # Year as 2 bytes (0 if None)
+    year = data["year"] if data["year"] is not None else 0
+    buf.extend(struct.pack(">H", year))
+
+    # Encode category as: length (2 bytes) + utf-8 bytes
+    category = data["category"] or ""
+    cat_bytes = category.encode("utf-8")
+    buf.extend(struct.pack(">H", len(cat_bytes)))
+    buf.extend(cat_bytes)
+
+    # Number of bricks as 4 bytes
+    bricks = data["bricks"]
+    buf.extend(struct.pack(">I", len(bricks)))
+
+    # Each brick: name_length (2 bytes) + name + color_id (4 bytes) + count (4 bytes)
+    for brick in bricks:
+        brick_name_bytes = brick["name"].encode("utf-8")
+        buf.extend(struct.pack(">H", len(brick_name_bytes)))
+        buf.extend(brick_name_bytes)
+        buf.extend(struct.pack(">i", brick["color_id"]))
+        buf.extend(struct.pack(">i", brick["count"]))
+
+    return bytes(buf)
 
 
 @app.route("/set")
@@ -152,10 +192,22 @@ def apiSet():
     set_id = request.args.get("id")
     db = Database()
     try:
-        json_result = get_set(db, set_id)
+        data = get_set(db, set_id)
     finally:
-        db.close
+        db.close()
+    json_result = json.dumps(data, indent=4)
     return Response(json_result, content_type="application/json")
+
+
+@app.route("/api/set/binary")
+def apiSetBinary():
+    set_id = request.args.get("id")
+    db = Database()
+    try:
+        binary_data = get_set_binary(db, set_id)
+    finally:
+        db.close()
+    return Response(binary_data, content_type="application/octet-stream")
 
 
 if __name__ == "__main__":
