@@ -108,6 +108,35 @@ def sets():
     
     return Response(compressed_page, content_type="text/html; charset=" + encoding_type, headers={"Content-Encoding": "gzip"})
 
+def get_set(db, set_id):
+    result = db.execute_and_fetch_all("select * from lego_set where id = %s", vars=(set_id,))
+
+    row = result[0]
+
+    data = {
+        "id": row[0],
+        "name": row[1],
+        "year": row[2],
+        "category": row[3]
+    }
+    
+    bricks_result = db.execute_and_fetch_all(
+    "select lego_brick.name, lego_inventory.color_id, lego_inventory.count "
+    "from lego_inventory join lego_brick "
+    "on lego_inventory.brick_type_id = lego_brick.brick_type_id "
+    "and lego_inventory.color_id = lego_brick.color_id "
+    "where set_id = %s",
+    vars=(set_id,)
+)
+    data["bricks"] = []
+    for brick in bricks_result:
+        data["bricks"].append({"name": brick[0], "color_id": brick[1], "count": brick[2]})
+    
+    return json.dumps(data)
+
+    
+
+
 
 @app.route("/set")
 def legoSet():  # We don't want to call the function `set`, since that would hide the `set` data type.
@@ -121,8 +150,11 @@ def legoSet():  # We don't want to call the function `set`, since that would hid
 @app.route("/api/set")
 def apiSet():
     set_id = request.args.get("id")
-    result = {"set_id": set_id}
-    json_result = json.dumps(result, indent=4)
+    db = Database()
+    try:
+        json_result = get_set(db, set_id)
+    finally:
+        db.close
     return Response(json_result, content_type="application/json")
 
 
