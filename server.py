@@ -1,5 +1,6 @@
 import json
 import html
+from collections import OrderedDict
 from flask import Flask, Response, request
 from time import perf_counter
 import gzip
@@ -7,6 +8,9 @@ import gzip
 from database import Database
 
 app = Flask(__name__)
+
+CACHE_MAX_SIZE = 100
+set_cache = OrderedDict()
 
 
 
@@ -106,7 +110,7 @@ def sets():
     compressed_page = gzip.compress(encoded_page)
     
     
-    return Response(compressed_page, content_type="text/html; charset=" + encoding_type, headers={"Content-Encoding": "gzip"})
+    return Response(compressed_page, content_type="text/html; charset=" + encoding_type, headers={"Content-Encoding": "gzip", "Cache-Control": "max-age=60"})
 
 def get_set(db, set_id):
     result = db.execute_and_fetch_all("select * from lego_set where id = %s", vars=(set_id,))
@@ -150,11 +154,30 @@ def legoSet():  # We don't want to call the function `set`, since that would hid
 @app.route("/api/set")
 def apiSet():
     set_id = request.args.get("id")
+    start_time = perf_counter()
+
+    # Check cache first
+    if set_id in set_cache:
+        # Move to end (most recently used)
+        set_cache.move_to_end(set_id)
+        json_result = json.dumps(set_cache[set_id], indent=4)
+        print(f"Cache HIT for {set_id}: {perf_counter() - start_time:.4f}s")
+        return Response(json_result, content_type="application/json")
+
+    # Cache miss — query the database
     db = Database()
     try:
         json_result = get_set(db, set_id)
     finally:
-        db.close
+        db.close()
+
+    # Parse result and store in cache
+    data = json.loads(json_result)
+    set_cache[set_id] = data
+    if len(set_cache) > CACHE_MAX_SIZE:
+        set_cache.popitem(last=False)  # Evict least recently used
+
+    print(f"Cache MISS for {set_id}: {perf_counter() - start_time:.4f}s")
     return Response(json_result, content_type="application/json")
 
 
