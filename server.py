@@ -190,6 +190,8 @@ def legoSet():  # We don't want to call the function `set`, since that would hid
 @app.route("/api/set")
 def apiSet():
     set_id = request.args.get("id")
+    if set_id is None:
+        return Response("Missing id parameter", status=400)
     db = Database()
     try:
         data = get_set(db, set_id)
@@ -202,6 +204,8 @@ def apiSet():
 @app.route("/api/set/binary")
 def apiSetBinary():
     set_id = request.args.get("id")
+    if set_id is None:
+        return Response("Missing id parameter", status=400)
     db = Database()
     try:
         binary_data = get_set_binary(db, set_id)
