@@ -34,6 +34,7 @@ def read_binary_set(filepath):
         print(f"{'Name':<40} {'Color ID':>10} {'Count':>8}")
         print("-" * 60)
 
+        #Read each brick name, color_id, and count
         for _ in range(num_bricks):
             brick_name = read_string(f)
             color_id = struct.unpack(">i", f.read(4))[0]

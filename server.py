@@ -114,17 +114,20 @@ def sets():
     return Response(compressed_page, content_type="text/html; charset=" + encoding_type, headers={"Content-Encoding": "gzip", "Cache-Control": "max-age=60"})
 
 def get_set(db, set_id):
+    #Fetch given set from its id
     result = db.execute_and_fetch_all("select * from lego_set where id = %s", vars=(set_id,))
-
     row = result[0]
 
+    #build data from given set
     data = {
         "id": row[0],
         "name": row[1],
         "year": row[2],
-        "category": row[3]
+        "category": row[3],
+        "bricks":[],
     }
     
+    #Fetch bricks in given set from lego inventory
     bricks_result = db.execute_and_fetch_all(
     "select lego_brick.name, lego_inventory.color_id, lego_inventory.count "
     "from lego_inventory join lego_brick "
@@ -132,8 +135,9 @@ def get_set(db, set_id):
     "and lego_inventory.color_id = lego_brick.color_id "
     "where set_id = %s",
     vars=(set_id,)
-)
-    data["bricks"] = []
+
+)   
+    #Append brick to data
     for brick in bricks_result:
         data["bricks"].append({"name": brick[0], "color_id": brick[1], "count": brick[2]})
 
