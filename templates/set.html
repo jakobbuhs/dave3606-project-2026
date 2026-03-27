@@ -22,20 +22,31 @@
             <tbody id="inventory"></tbody>
         </table>
         <script>
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
             const urlParameters = new URLSearchParams(document.location.search);
             const setId = urlParameters.get("id");
             fetch(`/api/set?id=${setId}`)
                 .then(function(setData) { return setData.json(); })
                 .then(function(setJson) {
+                    document.getElementById("setId").textContent = setJson.id;
+                    document.getElementById("setName").textContent = setJson.name;
+
                     const inventoryTable = document.getElementById("inventory");
-                    const inventoryRow = document.createElement("tr");
-                    inventoryRow.innerHTML = (
-                        "<td>Example row</td>" +
-                        "<td>to show how to</td>" +
-                        "<td>dynamically construct HTML</td>" +
-                        "<td>in JavaScript</td>"
-                    )
-                    inventoryTable.appendChild(inventoryRow);
+                    for (const brick of setJson.bricks) {
+                        const row = document.createElement("tr");
+                        row.innerHTML = (
+                            "<td></td>" +
+                            "<td>" + escapeHtml(brick.name) + "</td>" +
+                            "<td>" + escapeHtml(String(brick.color_id)) + "</td>" +
+                            "<td>" + escapeHtml(String(brick.count)) + "</td>"
+                        );
+                        inventoryTable.appendChild(row);
+                    }
                 })
                 .catch(function(err) {
                     document.getElementById("error").textContent = "Failed to load data: " + err;
