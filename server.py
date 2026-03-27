@@ -1,6 +1,7 @@
 import json
 import html
 from collections import OrderedDict
+import struct
 from flask import Flask, Response, request
 from time import perf_counter
 import gzip

@@ -1,16 +1,17 @@
-import gzip
-
-from server import get_sets
+from server import get_sets, get_set
 
 
 class MockDatabase:
-    def __init__(self, mock_data):
-        self.mock_data = mock_data
+    def __init__(self, set_data, bricks_data=None):
+        self.set_data = set_data
+        self.bricks_data = bricks_data or []
 
-    def execute_and_fetch_all(self, query):
+    def execute_and_fetch_all(self, query, vars=None):
         #Save query to mock for future testing
         self.endpoint_query = query
-        return self.mock_data
+        if "lego_set" in query:
+            return self.set_data
+        return self.bricks_data
 
     def close(self):
         pass
@@ -42,3 +43,32 @@ def test_get_sets():
     assert "785-2" in result
     assert "Basic Set" in result
     assert "Red Box" in result
+
+def test_api_set():
+    #Arrange mock data for test
+    mock_set = [("00-1", "Weetabix Castle", 1970, "Catalog: Sets: LEGOLAND: Castle")]
+
+    mock_bricks = [
+    ("Black Brick, Round 1 x 1 - Solid Stud, Bottom Lip", 11, 8),
+    ("Blue Brick 1 x 2", 7, 3),
+    ("Blue Brick 2 x 2 without Inside Supports", 7, 3),
+]
+    
+    mock_db = MockDatabase(mock_set, mock_bricks)
+
+    #Perform Query
+    result = get_set(mock_db, "00-1")
+
+    #Test results
+
+    #Test for set
+    assert result["name"] == "Weetabix Castle"
+    assert result["year"] == 1970
+
+    #Test for bricks
+    assert len(result["bricks"]) == 3
+    brick_names = [b["name"] for b in result["bricks"]]
+    assert "Black Brick, Round 1 x 1 - Solid Stud, Bottom Lip" in brick_names
+    assert "Blue Brick 1 x 2" in brick_names
+    assert "Blue Brick 2 x 2 without Inside Supports" in brick_names
+    assert result["bricks"]
