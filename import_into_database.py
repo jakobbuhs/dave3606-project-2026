@@ -3,13 +3,9 @@ import gzip
 from collections import defaultdict
 import psycopg
 
-conn = psycopg.connect(
-    host="localhost",
-    port=9876,
-    dbname="lego-db",
-    user="lego",
-    password="bricks",
-)
+from database import DB_CONFIG
+
+conn = psycopg.connect(**DB_CONFIG)
 
 with gzip.open("bricklink.json.gz") as f:
     sets = json.load(f)
