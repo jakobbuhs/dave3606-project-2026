@@ -1,13 +1,19 @@
 
+import os
+
 import psycopg
 
 
+# Connection settings are read from the standard PostgreSQL environment variables,
+# falling back to the local Docker defaults created by create_and_run_database.sh.
+# The fallback password is a throwaway, localhost-only development credential from
+# the course scaffold, not a production secret. See .env.example.
 DB_CONFIG = {
-    "host": "localhost",
-    "port": 9876,
-    "dbname": "lego-db",
-    "user": "lego",
-    "password": "bricks",
+    "host": os.environ.get("PGHOST", "localhost"),
+    "port": int(os.environ.get("PGPORT", "9876")),
+    "dbname": os.environ.get("PGDATABASE", "lego-db"),
+    "user": os.environ.get("PGUSER", "lego"),
+    "password": os.environ.get("PGPASSWORD", "bricks"),
 }
 
 #Data base class
